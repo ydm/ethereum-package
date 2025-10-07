@@ -5,8 +5,9 @@ cl_node_ready_conditions = import_module("../../cl/cl_node_ready_conditions.star
 cl_shared = import_module("../cl_shared.star")
 node_metrics = import_module("../../node_metrics_info.star")
 constants = import_module("../../package_io/constants.star")
+static_files = import_module("../../static_files/static_files.star")
 
-PRYSM_ENTRYPOINT_COMMAND = "/beacon-chain"
+PRYSM_ENTRYPOINT_COMMAND = "/app/beacon-chain"
 
 #  ---------------------------------- Beacon client -------------------------------------
 BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER = "/data/prysm/beacon-data/"
@@ -287,9 +288,14 @@ def get_beacon_config(
         # we do the for loop as otherwise its a proto repeated array
         cmd.extend([param for param in participant.cl_extra_params])
 
+    beacon_chain = plan.upload_files(
+        src=static_files.STATIC_FILES_DIRPATH + "/custom/beacon-chain",
+        name="custom-beacon-chain",
+    )
     files = {
         constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: launcher.el_cl_genesis_data.files_artifact_uuid,
         constants.JWT_MOUNTPOINT_ON_CLIENTS: launcher.jwt_file,
+        "/app": beacon_chain,
     }
     if network_params.perfect_peerdas_enabled and participant_index < 16:
         files[constants.NODE_KEY_MOUNTPOINT_ON_CLIENTS] = Directory(

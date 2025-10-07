@@ -1,6 +1,7 @@
 constants = import_module("../package_io/constants.star")
 shared_utils = import_module("../shared_utils/shared_utils.star")
 vc_shared = import_module("./shared.star")
+static_files = import_module("../static_files/static_files.star")
 
 PRYSM_PASSWORD_MOUNT_DIRPATH_ON_SERVICE_CONTAINER = "/prysm-password"
 PRYSM_BEACON_RPC_PORT = 4000
@@ -38,6 +39,7 @@ def get_config(
     )
 
     cmd = [
+        "/app/validator",
         "--accept-terms-of-use=true",  # it's mandatory in order to run the node
         "--chain-config-file="
         + constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER
@@ -96,10 +98,15 @@ def get_config(
         # this is a repeated<proto type>, we convert it into Starlark
         cmd.extend([param for param in participant.vc_extra_params])
 
+    validator = plan.upload_files(
+        src=static_files.STATIC_FILES_DIRPATH + "/custom/validator",
+        name="custom-validator",
+    )
     files = {
         constants.GENESIS_DATA_MOUNTPOINT_ON_CLIENTS: el_cl_genesis_data.files_artifact_uuid,
         constants.VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER: node_keystore_files.files_artifact_uuid,
         PRYSM_PASSWORD_MOUNT_DIRPATH_ON_SERVICE_CONTAINER: prysm_password_artifact_uuid,
+        "/app": validator,
     }
 
     public_ports = {}
@@ -138,7 +145,8 @@ def get_config(
         "image": image,
         "ports": ports,
         "public_ports": public_ports,
-        "cmd": cmd,
+        "entrypoint": ["sh", "-c"],
+        "cmd": ["exec " + " ".join(cmd)],
         "files": files,
         "env_vars": participant.vc_extra_env_vars,
         "labels": shared_utils.label_maker(
